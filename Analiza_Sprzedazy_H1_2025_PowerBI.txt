@@ -1,0 +1,44 @@
+# Analiza Sprzedaży E-commerce (H1 2025) – ETL & Business Intelligence
+
+## 1. Problem biznesowy i cel projektu
+Dział sprzedaży dysponował surowym eksportem danych z systemu ERP obejmującym blisko 1 500 transakcji z pierwszego półrocza 2025 roku. Plik zawierał liczne błędy systemowe, duplikaty oraz niespójne formaty zapisu, co uniemożliwiało bezpośrednie raportowanie w Excelu i podejmowanie trafnych decyzji biznesowych.
+
+Główne cele projektu:
+- Zbudowanie zautomatyzowanego procesu czyszczenia i transformacji danych (ETL) w Power Query.
+- Stworzenie dynamicznego modelu miar w języku DAX do monitorowania kluczowych wskaźników (KPI).
+- Zaprojektowanie interaktywnego dashboardu zarządczego w Power BI, który odpowiada na pytania o sezonowość sprzedaży, rentowność kanałów oraz bestsellerowe produkty.
+
+## 2. Proces czyszczenia i transformacji danych (ETL w Power Query)
+Surowy plik tekstowy wymagał wieloetapowego oczyszczenia przed załadowaniem do modelu danych. Zrealizowane kroki obejmowały:
+- Usunięcie metadanych i nagłówków technicznych: odfiltrowano dwa pierwsze wiersze systemowe z raportu ERP oraz wypromowano właściwy wiersz nagłówkowy.
+- Deduplikacja i walidacja wolumenu: usunięto zduplikowane identyfikatory zamówień (ID_Zamowienia) oraz odfiltrowano błędne rekordy z ujemnymi ilościami (Ilosc < 0), zapobiegając zawyżaniu wyników.
+- Standaryzacja formatów dat i walut: ujednolicono mieszane formaty dat (RRRR-MM-DD oraz DD.MM.RRRR) do jednego typu Date. Oczyszczono kolumnę Cena_Jednostkowa z dopisków walutowych (PLN, zł, zl) oraz skonwertowano ją przy użyciu ustawień regionalnych (Using Locale), eliminując 100% błędów parsowania.
+- Czyszczenie wymiarów tekstowych i braków danych: usunięto zbędne spacje (Trim), ujednolicono wielkość liter w nazwach województw i kanałów sprzedaży (Capitalize Each Word), uzupełniono brakujące nazwy województw o polskie znaki diakrytyczne, a puste wartości w kanale sprzedaży zastąpiono kategorią "Nieznany".
+- Inżynieria cech (Feature Engineering): rozdzielono połączoną kolumnę Produkt_Kategoria na dwa osobne wymiary analityczne oraz utworzono kolumnę obliczeniową wartości transakcji.
+
+## 3. Modelowanie i miary w języku DAX
+W celu zapewnienia elastycznej analizy w przekroju województw, miesięcy i kanałów sprzedaży zbudowano zestaw dedykowanych miar DAX:
+
+Przychód Zrealizowany (kluczowa miara finansowa filtrująca wyłącznie opłacone i zakończone transakcje):
+Przychód Zrealizowany = 
+CALCULATE(
+    SUM('powerquery_power bi'[Wartość_Sprzedazy]),
+    'powerquery_power bi'[Status] = "Zrealizowane"
+)
+
+Liczba Zamówień (zliczanie unikalnych transakcji zrealizowanych):
+Liczba Zamówień = 
+CALCULATE(
+    DISTINCTCOUNT('powerquery_power bi'[ID_Zamowienia]),
+    'powerquery_power bi'[Status] = "Zrealizowane"
+)
+
+Średni Koszyk / AOV (opcjonalna miara uzupełniająca):
+Średni Koszyk (AOV) = 
+DIVIDE([Przychód Zrealizowany], [Liczba Zamówień], 0)
+
+## 4. Kluczowe wnioski biznesowe (Co przedstawia dashboard?)
+- Całkowita skala biznesu: w pierwszym półroczu 2025 roku firma wygenerowała 3,10 mln zł przychodu ze zrealizowanych zamówień (ponad 1 000 unikalnych transakcji).
+- Wyraźna sezonowość (Trend H1 2025): sprzedaż utrzymywała stabilny poziom w pierwszym kwartale (styczeń–marzec), po czym odnotowała dynamiczny wzrost w kwietniu i osiągnęła szczyt w maju, z lekką korektą w czerwcu.
+- Dominacja kategorii komputerowej (Zasada Pareto): dwa flagowe produkty — Laptop Pro 15 (1,04 mln zł) oraz Laptop Air 13 (0,83 mln zł) — odpowiadają za ponad 60% całkowitego przychodu firmy. Produkty peryferyjne (myszy, głośniki, kamery) pełnią funkcję uzupełniającą.
+- Dywersyfikacja kanałów sprzedaży: największy udział w przychodach generuje własny Sklep WWW (~28,3%) oraz Allegro (~26,1%), przy silnym wsparciu kanału B2B (~16,3%) i Amazon (~14,7%). Niewielki odsetek (~4,5%) to zamówienia z nieprzypisanym kanałem (Nieznany), co wskazuje na potrzebę poprawy walidacji formularzy w systemie ERP.
